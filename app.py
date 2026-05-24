@@ -1,13 +1,12 @@
 import streamlit as st
 import pandas as pd
 import os
-#Diseño 
-st.set_page_config(
-    page_title="Music AI Bot",
-    page_icon="🎵",
-    layout="centered"
-)
+from recomendador import cargar_dataset, recomendar, formatear_recomendaciones
 
+# Diseño 
+st.set_page_config(page_title="Music AI Bot", page_icon="🎵", layout="centered")
+
+# Estilos
 st.markdown("""
     <style>
     .main .block-container { max-width: 750px; padding-top: 2rem; }
@@ -15,6 +14,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
+# --- SIDEBAR RESTAURADO ---
 with st.sidebar:
     st.title("Módulos de IA")
     st.write("Panel para interactuar con las funciones de audio.")
@@ -30,30 +30,61 @@ with st.sidebar:
         st.info("Audio recibido. Procesando frecuencias...")
 
 st.title("Music AI")
-st.caption("Chatbot inteligente de recomendación, letras y reconocimiento musical.")
+st.caption("Chatbot inteligente con corrección de búsqueda.")
 
+# Inicializar estados
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "assistant", "content": "¡Hola! Soy tu asistente musical. Puedes pedirme recomendaciones por género o artista, o escribir una frase de una canción para buscar su letra. ¿Qué escuchamos hoy?"}
-    ]
+    st.session_state.messages = [{"role": "assistant", "content": "¡Hola! ¿Qué artista buscamos hoy?"}]
+if "pending_artist" not in st.session_state:
+    st.session_state.pending_artist = None
 
+# Mostrar historial
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-if prompt := st.chat_input("Pregúntale algo a tu asistente musical..."):
-
+# Lógica principal
+if prompt := st.chat_input("Escribe un artista..."):
+    
+    # 1. Mostrar mensaje del usuario
     with st.chat_message("user"):
         st.write(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.chat_message("assistant"):
         mensaje_espera = st.empty()
-        mensaje_espera.markdown("*Pensando...*")
+        ruta_csv = "data/dataset_musica.csv"
         
-        # Simulación de respuesta conectada al dataset
-        respuesta_bot = f"Recibí tu petición: '{prompt}'. Aquí se llamará al modelo de Machine Learning correspondiente usando el archivo dataset_musica.csv."
-        mensaje_espera.write(respuesta_bot)
-        
-    st.session_state.messages.append({"role": "assistant", "content": respuesta_bot})
+        if os.path.exists(ruta_csv):
+            df = cargar_dataset(ruta_csv)
+            
+            # --- LÓGICA DE CORRECCIÓN ---
+            if st.session_state.pending_artist and prompt.lower() in ["si", "sí", "yes", "claro"]:
+                df_rec = recomendar(st.session_state.pending_artist, df)
+                respuesta_bot = formatear_recomendaciones(df_rec, st.session_state.pending_artist)
+                st.session_state.pending_artist = None
+            
+            else:
+                df_rec = recomendar(prompt.strip(), df)
+                
+                if df_rec.empty:
+                    artistas_unicos = df["Artista"].unique()
+                    sugerencia = None
+                    for art in artistas_unicos:
+                        if prompt[:3].lower() in art.lower():
+                            sugerencia = art
+                            break
+                    
+                    if sugerencia:
+                        respuesta_bot = f"No encontré exactamente '{prompt}'. ¿Te refieres a **{sugerencia}**?"
+                        st.session_state.pending_artist = sugerencia
+                    else:
+                        respuesta_bot = f"No encontré nada relacionado con '{prompt}'. Intenta con otro nombre."
+                else:
+                    respuesta_bot = formatear_recomendaciones(df_rec, prompt)
+            
+            mensaje_espera.markdown(respuesta_bot)
+            st.session_state.messages.append({"role": "assistant", "content": respuesta_bot})
+        else:
+            st.error("Dataset no encontrado.")
     #Usar "streamlit run app.py" en la terminal para iniciar la aplicación.
