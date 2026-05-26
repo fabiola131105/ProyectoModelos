@@ -3,14 +3,21 @@ import pandas as pd
 import os
 from recomendador import cargar_dataset, recomendar, formatear_recomendaciones
 
-# Diseño 
 st.set_page_config(page_title="Music AI Bot", page_icon="🎵", layout="centered")
 
-# Estilos
 st.markdown("""
     <style>
-    .main .block-container { max-width: 750px; padding-top: 2rem; }
-    div.stChatInput { position: fixed; bottom: 3rem; max-width: 750px; z-index: 99; }
+    .main .block-container { max-width: 750px; padding-top: 2rem; padding-bottom: 7rem; }
+    
+    /* Contenedor flotante inferior para el texto y el micrófono */
+    div[data-testid="stHorizontalBlock"] {
+        position: fixed;
+        bottom: 2rem;
+        max-width: 750px;
+        width: 100%;
+        z-index: 99;
+        background-color: transparent;
+    }
     </style>
 """, unsafe_allow_html=True)
 
@@ -32,21 +39,36 @@ with st.sidebar:
 st.title("Music AI")
 st.caption("Chatbot inteligente con corrección de búsqueda.")
 
-# Inicializar estados
 if "messages" not in st.session_state:
     st.session_state.messages = [{"role": "assistant", "content": "¡Hola! ¿Qué artista buscamos hoy?"}]
 if "pending_artist" not in st.session_state:
     st.session_state.pending_artist = None
 
-# Mostrar historial
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.write(message["content"])
 
-# Lógica principal
-if prompt := st.chat_input("Escribe un artista..."):
+col_texto, col_micro = st.columns([0.9, 0.1], vertical_alignment="bottom")
+
+with col_texto:
+
+    prompt = st.text_input("Escribe un artista...", key="chat_prompt", label_visibility="collapsed", placeholder="Pregúntale algo a tu asistente musical...")
+
+with col_micro:
+
+    click_microfono = st.button(":material/mic:", help="Grabar audio desde el micrófono")
+
+if click_microfono:
+    with st.chat_message("user"):
+        st.write("🎙️ *[Grabando audio desde el micrófono...]*")
+    st.session_state.messages.append({"role": "user", "content": "🎙️ *[Grabando audio desde el micrófono...]*"})
     
-    # 1. Mostrar mensaje del usuario
+    with st.chat_message("assistant"):
+        st.info("Función de grabación activada. Escuchando frecuencias...")
+
+
+if prompt:
+
     with st.chat_message("user"):
         st.write(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
@@ -57,8 +79,7 @@ if prompt := st.chat_input("Escribe un artista..."):
         
         if os.path.exists(ruta_csv):
             df = cargar_dataset(ruta_csv)
-            
-            # --- LÓGICA DE CORRECCIÓN ---
+
             if st.session_state.pending_artist and prompt.lower() in ["si", "sí", "yes", "claro"]:
                 df_rec = recomendar(st.session_state.pending_artist, df)
                 respuesta_bot = formatear_recomendaciones(df_rec, st.session_state.pending_artist)
@@ -87,4 +108,3 @@ if prompt := st.chat_input("Escribe un artista..."):
             st.session_state.messages.append({"role": "assistant", "content": respuesta_bot})
         else:
             st.error("Dataset no encontrado.")
-    #Usar "streamlit run app.py" en la terminal para iniciar la aplicación.
