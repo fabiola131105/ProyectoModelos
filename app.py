@@ -3,6 +3,7 @@ import pandas as pd
 import os
 from recomendador import cargar_dataset, recomendar, formatear_recomendaciones
 from audio_search import AudioSearch
+from letras import buscar_por_letra, formatear_resultados_letras
 
 # ── Diseño ──────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Music AI Bot", page_icon="🎵", layout="centered")
